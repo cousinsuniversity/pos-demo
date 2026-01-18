@@ -15,11 +15,14 @@ class POS {
         };
         
         // Idle System
-        this.idleTime = 40000; // 40 Seconds
+        this.idleTime = 40000; 
         this.idleTimer = null;
         this.demoInterval = null;
         this.ghostInterval = null;
+        this.iconInterval = null;
         this.isDemoActive = false;
+        
+        this.ghostCartTotal = 0;
 
         try {
             const savedData = localStorage.getItem('nexus_products');
@@ -55,15 +58,11 @@ class POS {
         this.renderProducts();
         this.renderCart();
         this.applySettings();
-        
-        // Start Idle Watcher
         this.setupIdleDetection();
     }
     
-    // --- IDLE / DEMO MODE LOGIC ---
     setupIdleDetection() {
         const reset = () => this.resetIdleTimer();
-        
         window.onload = reset;
         window.onmousemove = reset;
         window.onmousedown = reset; 
@@ -74,28 +73,54 @@ class POS {
     }
 
     resetIdleTimer() {
-        if(this.isDemoActive) {
-            this.stopDemoMode();
-        }
-        
+        if(this.isDemoActive) return; 
         clearTimeout(this.idleTimer);
         this.idleTimer = setTimeout(() => this.startDemoMode(), this.idleTime);
     }
 
     startDemoMode() {
         if(this.settings.setupDone === false) return; 
-        
         this.isDemoActive = true;
-        document.getElementById('demoOverlay').style.display = 'flex';
+        const overlay = document.getElementById('demoOverlay');
+        overlay.style.display = 'flex';
         
-        // 1. Start Text Loop
+        // Initialize Commercial Text Loop
+        this.startTextLoop();
+
+        // SCENE CONTROLLER: Switch between Ghost App and Icon Ballet every 8 seconds
+        let sceneToggle = false;
+        
+        const switchScene = () => {
+            if(!this.isDemoActive) return;
+
+            if(!sceneToggle) {
+                // SCENE 1: GHOST APP
+                document.getElementById('demoIconStage').classList.remove('active');
+                document.getElementById('demoSimulation').style.opacity = '0.6';
+                this.stopIconBallet();
+                this.startGhostApp();
+            } else {
+                // SCENE 2: ICON BALLET
+                document.getElementById('demoSimulation').style.opacity = '0'; // Hide app
+                document.getElementById('demoIconStage').classList.add('active');
+                clearInterval(this.ghostInterval); // Pause ghost
+                this.startIconBallet();
+            }
+            sceneToggle = !sceneToggle;
+        };
+
+        // Run Scene 1 immediately, then loop
+        switchScene(); 
+        this.demoInterval = setInterval(switchScene, 8000); 
+    }
+
+    startTextLoop() {
         const features = [
             { main: "ULTRA FAST", sub: "Instant Touch Response" },
             { main: "3D UI", sub: "Immersive Experience" },
             { main: "CLOUD SYNC", sub: "Real-time Data" },
-            { main: "SECURE", sub: "Bank Grade Encryption" }
+            { main: "SATISFYING", sub: "Tactile Physics" }
         ];
-        
         let i = 0;
         const mainText = document.getElementById('demoFeatureText');
         const subText = document.getElementById('demoSubText');
@@ -103,7 +128,9 @@ class POS {
         mainText.innerText = features[0].main;
         subText.innerText = features[0].sub;
         
-        this.demoInterval = setInterval(() => {
+        // Loop text separately from scenes
+        setInterval(() => {
+            if(!this.isDemoActive) return;
             i = (i + 1) % features.length;
             mainText.style.opacity = 0;
             setTimeout(() => {
@@ -115,65 +142,123 @@ class POS {
                 mainText.style.animation = 'slideUpFade 0.8s ease-out';
             }, 200);
         }, 4000);
-
-        // 2. Start Ghost UI Automation
-        this.runGhostDemo();
     }
 
-    runGhostDemo() {
-        // Reset state for demo
-        this.cart = [];
-        this.renderCart();
-        this.filterCategory('All');
+    // --- SCENE 1: GHOST APP ---
+    startGhostApp() {
+        const appContent = document.querySelector('.app-container').innerHTML;
+        const simulationContainer = document.getElementById('demoSimulation');
+        simulationContainer.innerHTML = appContent;
         
-        // Loop interactions
+        const simCartItems = simulationContainer.querySelector('.cart-items');
+        if(simCartItems) simCartItems.innerHTML = '';
+        this.ghostCartTotal = 0;
+        this.updateFakeTotal(0);
+
         this.ghostInterval = setInterval(() => {
             const rand = Math.random();
+            const cards = simulationContainer.querySelectorAll('.product-card');
             
-            if (rand < 0.7) {
-                // 70% chance: Click a random product
-                const cards = document.querySelectorAll('.product-card');
-                if(cards.length > 0) {
-                    const randomCard = cards[Math.floor(Math.random() * cards.length)];
-                    
-                    // Trigger visual press effect manually since we are in script
-                    randomCard.style.transform = 'scale(0.95)';
-                    randomCard.style.boxShadow = 'var(--shadow-in)';
-                    
-                    // Trigger actual logic
-                    const eventType = this.isTouch ? 'touchstart' : 'mousedown';
-                    const event = new Event(eventType);
-                    randomCard.dispatchEvent(event);
-                    
-                    setTimeout(() => {
-                        randomCard.style.transform = '';
-                        randomCard.style.boxShadow = '';
-                    }, 150);
-                }
+            if (rand < 0.7 && cards.length > 0) {
+                const randomCard = cards[Math.floor(Math.random() * cards.length)];
+                randomCard.style.transform = 'scale(0.95)';
+                randomCard.style.boxShadow = 'var(--shadow-in)';
+                
+                const name = randomCard.querySelector('.product-name').innerText;
+                const priceTxt = randomCard.querySelector('.product-price').innerText;
+                const price = parseFloat(priceTxt.replace(/[^0-9.]/g, ''));
+                this.addFakeItemToDemo(name, price);
+                
+                setTimeout(() => { randomCard.style.transform = ''; randomCard.style.boxShadow = ''; }, 150);
             } else if (rand < 0.9) {
-                // 20% chance: Switch Category
-                const tabs = document.querySelectorAll('.tab-btn');
+                const tabs = simulationContainer.querySelectorAll('.tab-btn');
                 const randomTab = tabs[Math.floor(Math.random() * tabs.length)];
-                randomTab.click();
+                tabs.forEach(t => t.classList.remove('active'));
+                randomTab.classList.add('active');
             } else {
-                // 10% chance: Clear Cart if full to keep demo clean
-                if(this.cart.length > 3) {
-                   this.cart = [];
-                   this.renderCart();
-                }
+                const cart = simulationContainer.querySelector('.cart-items');
+                if(cart && cart.children.length > 3) { cart.innerHTML = ''; this.ghostCartTotal = 0; this.updateFakeTotal(0); }
+            }
+        }, 1200); 
+    }
+
+    // --- SCENE 2: ICON BALLET ---
+    startIconBallet() {
+        const icons = [
+            document.getElementById('dIcon1'),
+            document.getElementById('dIcon2'),
+            document.getElementById('dIcon3'),
+            document.getElementById('dIcon4')
+        ];
+        const payBtn = document.getElementById('dPayBtn');
+        let beat = 0;
+
+        this.iconInterval = setInterval(() => {
+            // Rhythmic Wave: 1, 2, 3, 4, Big Button
+            if (beat < 4) {
+                // Pulse icon
+                const icon = icons[beat];
+                icon.classList.add('press');
+                setTimeout(() => icon.classList.remove('press'), 300);
+            } else if (beat === 4) {
+                // Pulse Big Button
+                payBtn.style.transform = 'scale(0.9)';
+                payBtn.style.boxShadow = 'inset 0 0 20px rgba(0,0,0,0.5)';
+                setTimeout(() => {
+                     payBtn.style.transform = 'scale(1)';
+                     payBtn.style.boxShadow = '';
+                }, 300);
             }
             
-        }, 1200); // Action every 1.2 seconds
+            beat = (beat + 1) % 6; // 6 beats total (1 pause at end)
+        }, 600); // 600ms rhythm
+    }
+
+    stopIconBallet() {
+        clearInterval(this.iconInterval);
+    }
+
+    addFakeItemToDemo(name, price) {
+        const demoContainer = document.getElementById('demoSimulation');
+        const simCartItems = demoContainer.querySelector('.cart-items');
+        const sym = this.getCurrencySymbol();
+        if(!simCartItems) return;
+
+        const el = document.createElement('div');
+        el.className = 'cart-item';
+        el.innerHTML = `<div class="item-info"><h4>${name}</h4><p>${sym}${price.toFixed(2)}</p></div><div>1</div>`;
+        simCartItems.appendChild(el);
+        this.ghostCartTotal += price;
+        this.updateFakeTotal(this.ghostCartTotal);
+    }
+
+    updateFakeTotal(amount) {
+        const demoContainer = document.getElementById('demoSimulation');
+        const totalEl = demoContainer.querySelector('#finalTotal');
+        const mobileEl = demoContainer.querySelector('#mobileTotal');
+        const subTotalEl = demoContainer.querySelector('#subTotal');
+        const sym = this.getCurrencySymbol();
+        const str = sym + (amount * 1.05).toFixed(2);
+        
+        if(totalEl) totalEl.innerText = str;
+        if(mobileEl) mobileEl.innerText = str;
+        if(subTotalEl) subTotalEl.innerText = sym + amount.toFixed(2);
     }
 
     stopDemoMode() {
         this.isDemoActive = false;
         document.getElementById('demoOverlay').style.display = 'none';
-        clearInterval(this.demoInterval);
-        clearInterval(this.ghostInterval);
+        document.getElementById('demoSimulation').innerHTML = '';
         
-        // Clean up any open dialogs from ghost clicks
-        document.getElementById('customDialogOverlay').style.display = 'none';
+        // Stop all loops
+        clearInterval(this.demoInterval); // Scene switcher
+        clearInterval(this.ghostInterval); // Ghost app
+        this.stopIconBallet(); // Icon ballet
+        
+        // Clean up global text loop (it uses setInterval but we need reference, simplistic approach: reload page or use flag)
+        // Since we check `this.isDemoActive` inside text loop, it will stop logically.
+
+        this.resetIdleTimer();
     }
 
     // --- STANDARD LOGIC ---
@@ -218,7 +303,6 @@ class POS {
             this.settings.language = lang;
             this.settings.currency = region;
             this.settings.setupDone = true;
-            
             this.saveData(); 
             location.reload();
         } else {
