@@ -13,8 +13,6 @@
             --accent-dark: #009da0;
             --text-main: #ffffff;
             --text-muted: #8b9bb4;
-            
-            /* 3D Effects */
             --shadow-out: 5px 5px 10px #0b0b0d, -5px -5px 10px #25252d;
             --shadow-in: inset 5px 5px 10px #0b0b0d, inset -5px -5px 10px #25252d;
             --glow: 0 0 15px rgba(0, 242, 234, 0.3);
@@ -34,29 +32,10 @@
         }
 
         /* --- Animations --- */
-        @keyframes sheen {
-            0% { left: -100%; opacity: 0; }
-            50% { opacity: 0.5; }
-            100% { left: 200%; opacity: 0; }
-        }
-
-        @keyframes dialogPop {
-            0% { transform: scale(0.8) translateY(20px) rotateX(10deg); opacity: 0; }
-            50% { transform: scale(1.05) translateY(-5px) rotateX(0deg); opacity: 1; }
-            100% { transform: scale(1) translateY(0); }
-        }
-
-        @keyframes float3D {
-            0% { transform: translateY(0) rotateX(0); }
-            50% { transform: translateY(-10px) rotateX(5deg); }
-            100% { transform: translateY(0) rotateX(0); }
-        }
-        
-        /* Demo Mode Animations */
-        @keyframes slideUpFade {
-            0% { opacity: 0; transform: translateY(50px); }
-            100% { opacity: 1; transform: translateY(0); }
-        }
+        @keyframes sheen { 0% { left: -100%; opacity: 0; } 50% { opacity: 0.5; } 100% { left: 200%; opacity: 0; } }
+        @keyframes dialogPop { 0% { transform: scale(0.8) translateY(20px) rotateX(10deg); opacity: 0; } 50% { transform: scale(1.05) translateY(-5px) rotateX(0deg); opacity: 1; } 100% { transform: scale(1) translateY(0); } }
+        @keyframes float3D { 0% { transform: translateY(0) rotateX(0); } 50% { transform: translateY(-10px) rotateX(5deg); } 100% { transform: translateY(0) rotateX(0); } }
+        @keyframes slideUpFade { 0% { opacity: 0; transform: translateY(50px); } 100% { opacity: 1; transform: translateY(0); } }
 
         /* --- Layout --- */
         .app-container { display: flex; height: 100%; width: 100%; overflow: hidden; }
@@ -108,18 +87,53 @@
         /* --- DEMO MODE SCREENSAVER STYLES --- */
         #demoOverlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            /* Transparent middle so we can see the GHOST ANIMATION */
-            background: linear-gradient(to bottom, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.1) 40%, rgba(0,0,0,0.1) 60%, rgba(0,0,0,0.9) 100%);
-            backdrop-filter: blur(2px);
+            background: #121215; 
             z-index: 999999;
             display: none; 
-            flex-direction: column; justify-content: space-between; align-items: center;
+            flex-direction: column; justify-content: center; align-items: center;
             overflow: hidden;
-            pointer-events: none; /* Let clicks pass through for ghost script, but we capture tap via listener on window */
-            padding: 50px 0;
+            pointer-events: auto; 
         }
         
-        #demoContent { text-align: center; z-index: 2; margin-top: 20px; }
+        #demoSimulation {
+            width: 100%; height: 100%;
+            position: absolute; top:0; left:0;
+            opacity: 0.6; filter: blur(0.5px); pointer-events: none; z-index: 1;
+            transition: opacity 1s;
+        }
+
+        /* NEW: Icon Showcase Stage */
+        #demoIconStage {
+            width: 100%; height: 100%; position: absolute; top:0; left:0;
+            display: none; /* Hidden by default */
+            flex-direction: column; justify-content: center; align-items: center;
+            z-index: 3;
+            background: rgba(0,0,0,0.8);
+        }
+        
+        #demoIconStage.active { display: flex; animation: fadeIn 1s; }
+        
+        .icon-row { display: flex; gap: 30px; margin-bottom: 50px; }
+        
+        .demo-icon {
+            width: 80px; height: 80px;
+            background: var(--card-bg); border-radius: 20px;
+            display: flex; justify-content: center; align-items: center;
+            font-size: 2rem; color: var(--accent-color);
+            box-shadow: var(--shadow-out);
+            transition: 0.2s;
+        }
+        
+        .demo-icon.press {
+            transform: scale(0.85);
+            box-shadow: var(--shadow-in);
+            color: white;
+        }
+        
+        .demo-icon i { transition: transform 0.3s; }
+        .demo-icon.press i { transform: rotate(15deg) scale(1.2); }
+
+        #demoContent { text-align: center; z-index: 5; margin-top: 20px; position: absolute; top: 20%; pointer-events: none;}
         
         .demo-feature {
             font-size: 3.5rem; font-weight: 900; color: white;
@@ -128,24 +142,27 @@
             animation: slideUpFade 0.8s ease-out;
         }
         
-        .demo-sub {
-            font-size: 1.2rem; color: var(--text-muted); letter-spacing: 5px; text-transform: uppercase;
-        }
-
-        .tap-prompt {
-            width: 100%; text-align: center;
-            color: white; font-size: 1.2rem; animation: pulse 2s infinite; opacity: 0.7;
-            background: rgba(0,0,0,0.5); padding: 10px; border-radius: 20px; width: fit-content;
-        }
-
+        .demo-sub { font-size: 1.2rem; color: var(--text-muted); letter-spacing: 5px; text-transform: uppercase; }
+        .tap-prompt { position: absolute; bottom: 50px; width: 100%; text-align: center; color: white; font-size: 1.2rem; animation: pulse 2s infinite; opacity: 0.7; background: rgba(0,0,0,0.5); padding: 10px; width: fit-content; border-radius: 20px; z-index: 10; pointer-events: none;}
         @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
-        
         @media (max-width: 768px) { .app-container { flex-direction: column; } .cart-section { position: fixed; bottom: 0; left: 0; width: 100%; height: 90px; border-radius: 30px 30px 0 0; transition: height 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 -10px 40px rgba(0,0,0,0.6); } .cart-section.expanded { height: 90vh; } .cart-items, .totals-area, .table-selector { display: none; } .cart-section.expanded .cart-items, .cart-section.expanded .totals-area, .cart-section.expanded .table-selector { display: flex; } .mobile-only { display: block !important; } }
     </style>
 </head>
 <body>
 
-<div id="demoOverlay">
+<div id="demoOverlay" onclick="window.app.stopDemoMode()">
+    <div id="demoSimulation"></div>
+
+    <div id="demoIconStage">
+        <div class="icon-row">
+            <div class="demo-icon" id="dIcon1"><i class="fas fa-coffee"></i></div>
+            <div class="demo-icon" id="dIcon2"><i class="fas fa-hamburger"></i></div>
+            <div class="demo-icon" id="dIcon3"><i class="fas fa-ice-cream"></i></div>
+            <div class="demo-icon" id="dIcon4"><i class="fas fa-cocktail"></i></div>
+        </div>
+        <button class="pay-btn" id="dPayBtn" style="width: 200px; height: 60px; font-size: 1.5rem; transition: 0.2s;">PAY NOW</button>
+    </div>
+    
     <div id="demoContent">
         <div class="logo-3d" style="font-size:3rem; margin-bottom:10px;">NEXUS<span style="color:var(--accent-color)">POS</span></div>
         <div id="demoFeatureText" class="demo-feature">ULTRA FAST</div>
